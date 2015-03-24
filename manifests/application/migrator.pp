@@ -7,7 +7,9 @@
 # $service_owner                     - Owner of service and related files. Defaults to root.
 # $service_group                     - Group of service and related files. Defaults to root.
 # $migrator_version                  - Version of consistency-checker rpm to install. Defaults to latest.
+# $generate_log4j                    - Boolean indicating if a log4j.properties file should be generated. Defaults to false
 # $jsvc_version                      - Version of the jsvc package to install. Defaults to latest.
+# $migrator_config_dir               - Absolute config directory. Defaults to '/etc/migrator'.
 # $java_home                         - (optional) Specify the java home directory. Defaults to JAVA_HOME.
 # $jar_path                          - (optional) Specify the path to the jar file to be wrapped in the service.
 # $service_log_file                  - Path to log out/err message too.
@@ -65,12 +67,14 @@ class lightblue::application::migrator (
     $service_owner = 'root',
     $service_group = 'root',
     $migrator_version = 'latest',
+    $generate_log4j = false,
     $jsvc_version = 'latest',
+    $migrator_config_dir = '/etc/migrator',
     $java_home = undef,
     $jar_path = '/var/lib/jbossas/standalone/deployments/lightblue-migrator-consistency-checker-*.jar',
     $service_log_file = 'migrator.log',
     $hostname = '$(hostname)',
-    $serviceJvmOptions = {},
+    $serviceJvmOptions = [],
     $checker_name,
     $job_version,
     $configuration_version,
@@ -265,6 +269,20 @@ class lightblue::application::migrator (
       }
     }
 
+    if($generate_log4j){
+      class{ 'lightblue::application::migrator::log4j':
+        config_dir   => $migrator_config_dir,
+        log_file     => $service_log_file,
+        owner        => $service_owner,
+        group        => $service_group,
+        require      => File[$migrator_config_dir],
+      }
+      $log4j_jvm_options = ["Dlog4j.configuration=file:${::lightblue::application::migrator::log4j::log4j_config_file}"]
+    }
+    else{
+      $log4j_jvm_options = []
+    }
+
     file { $service_log_file:
       ensure  => 'file',
       owner   => $service_owner,
@@ -290,7 +308,7 @@ class lightblue::application::migrator (
         sourceconfig      => $source_config_file,
         destinationconfig => $destination_config_file,
       },
-      jvmOptions          => $serviceJvmOptions,
+      jvmOptions          => union($log4j_jvm_options, $serviceJvmOptions),
       require             => [Package[$migrator_package_name]],
     } ~>
     service { $migrator_service_name:

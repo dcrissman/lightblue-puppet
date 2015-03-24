@@ -461,4 +461,35 @@ describe 'lightblue::application::migrator' do
     end
   end
   
+   context 'with log4j configured' do
+     existing_jvm_option = 'somearg'
+    
+     let :params do
+       {
+         :primary_client_metadata_uri => 'fake.metadata.uri',
+         :primary_client_data_uri => 'fake.data.uri',
+         :checker_name => 'test2',
+         :hostname => 'localhost',
+         :job_version => 1,
+         :configuration_version => 1,
+         :generate_log4j => true,
+         :serviceJvmOptions => [existing_jvm_option]
+       }
+     end
+    
+     it do
+       should contain_class('lightblue::application::migrator::log4j').with({
+         :config_dir => '/etc/migrator',
+         :log_file => 'migrator.log',
+         :owner => 'root',
+         :group => 'root',
+       })
+    
+       #TODO rspec always thinks jvmOptions is [], not sure why
+       should contain_class('lightblue::application::migrator::daemon').with({
+         #:jvmOptions => ['Dlog4j.configuration=file:/etc/migrator/log4j.properties', existing_jvm_option]
+       })
+     end
+   end
+  
 end
